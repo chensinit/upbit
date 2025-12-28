@@ -80,6 +80,8 @@ GEMINI_API_KEY=your_gemini_api_key_here
 ### 1. 테스트 실행 (test_llm.py)
 
 LLM 호출을 수동으로 테스트하고 거래를 실행할 수 있습니다:
+테스트로 1회 먼저 확인해본 후 정식 실행해 주세요.
+로그를 확인하고 모든 정보가 제대로 들어오는지, llm응답은 정상인지, 거래는 제대로 하는지 확인이 필요합니다.
 
 ```bash
 python test_llm.py
