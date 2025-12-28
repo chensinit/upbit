@@ -59,6 +59,8 @@ UPBIT_SECRET_KEY=your_secret_key_here
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
+더 간단하게 config.py 에 설정해도 됩니다.
+
 #### API 키 발급 방법
 
 **업비트 API 키**
