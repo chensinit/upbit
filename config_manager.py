@@ -97,7 +97,9 @@ class ConfigManager:
         """
         default_settings = {
             "check_interval": 30 * 60,  # 거래 사이클 간격: 30분 (초)
-            "coin_selection_interval": 6 * 60 * 60,  # 코인 선택 사이클 간격: 6시간 (초)
+            "coin_selection_interval": 6 * 60 * 60,  # 코인 선택 사이클 간격: 6시간 (초, 사용 안 함)
+            "coin_selection_hour": 2,  # 코인 선택 실행 시간 (새벽 2시)
+            "coin_selection_minute": 0,  # 코인 선택 실행 분 (0분)
             "max_trade_ratio": None,  # 거래 비율 제한 (None이면 제한 없음)
         }
         

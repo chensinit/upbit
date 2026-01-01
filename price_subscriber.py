@@ -247,14 +247,21 @@ def get_current_prices(tickers: List[str], use_websocket: bool = False, timeout:
     else:
         # REST API 사용 (기존 방식)
         prices = {}
-        for ticker in tickers:
+        for i, ticker in enumerate(tickers):
             try:
+                # Rate limiting 방지: 코인 사이에 0.3초 대기
+                if i > 0:
+                    time.sleep(0.3)
+                
                 price = pyupbit.get_current_price(ticker)
-                if price:
+                if price and price > 0:  # price가 None이거나 0이면 실패
                     prices[ticker] = price
                 else:
-                    # 가격이 None인 경우 (코인이 존재하지 않을 수 있음)
-                    print(f"⚠️  {ticker} 가격 조회 실패: 가격 정보 없음 (업비트에 존재하지 않을 수 있음)")
+                    # 가격이 None이거나 0인 경우
+                    if price == 0:
+                        print(f"⚠️  {ticker} 가격 조회 실패: 가격이 0 (일시적 오류 또는 코인 없음)")
+                    else:
+                        print(f"⚠️  {ticker} 가격 조회 실패: 가격 정보 없음 (업비트에 존재하지 않을 수 있음)")
             except Exception as e:
                 error_msg = str(e)
                 # "Code not found"는 업비트에 해당 코인이 없다는 의미
@@ -264,6 +271,51 @@ def get_current_prices(tickers: List[str], use_websocket: bool = False, timeout:
                     print(f"⚠️  {ticker} 가격 조회 실패: {e}")
         
         return prices
+
+
+def get_current_prices_and_volumes(tickers: List[str]) -> Dict[str, Dict]:
+    """
+    여러 코인의 현재가와 24시간 거래량을 함께 조회
+    
+    Args:
+        tickers: 조회할 티커 리스트
+        
+    Returns:
+        {ticker: {"price": price, "volume": volume}} 딕셔너리
+    """
+    result = {}
+    for i, ticker in enumerate(tickers):
+        try:
+            # Rate limiting 방지: 코인 사이에 0.3초 대기
+            if i > 0:
+                time.sleep(0.3)
+            
+            # get_ticker()로 가격과 거래량 함께 조회
+            ticker_info = pyupbit.get_ticker(ticker)
+            if ticker_info:
+                price = ticker_info.get("trade_price")
+                volume = ticker_info.get("acc_trade_volume_24h")  # 24시간 거래량
+                
+                if price and price > 0:
+                    result[ticker] = {
+                        "price": price,
+                        "volume": volume if volume else 0.0
+                    }
+                else:
+                    if price == 0:
+                        print(f"⚠️  {ticker} 가격 조회 실패: 가격이 0 (일시적 오류 또는 코인 없음)")
+                    else:
+                        print(f"⚠️  {ticker} 가격 조회 실패: 가격 정보 없음")
+            else:
+                print(f"⚠️  {ticker} 티커 정보 조회 실패")
+        except Exception as e:
+            error_msg = str(e)
+            if "Code not found" in error_msg or "not found" in error_msg.lower():
+                print(f"⚠️  {ticker} 티커 정보 조회 실패: 업비트에 존재하지 않는 코인입니다")
+            else:
+                print(f"⚠️  {ticker} 티커 정보 조회 실패: {e}")
+    
+    return result
 
 
 def get_current_prices_via_websocket(tickers: List[str], timeout: int = 10) -> Dict[str, float]:

@@ -337,10 +337,10 @@ class GeminiClient:
             print(f"⚠️  히스토리 저장 실패: {e}")
             return False
     
-    def build_trading_prompt(self, current_prices: Dict[str, float], 
-                             portfolio_info: str, 
-                             trade_history: str,
-                             price_trends: str = "") -> str:
+    def build_trading_prompt(self, current_prices: Dict[str, float],
+                           portfolio_info: str,
+                           trade_history: str,
+                           price_trends: str = "") -> str:
         """
         거래 결정용 프롬프트 생성 (buy_coin, sell_coin만)
         
@@ -358,14 +358,14 @@ class GeminiClient:
         # price_trends에 중괄호가 있을 수 있으므로 f-string 대신 format 사용
         price_trends_section = price_trends if price_trends else ""
         
-        prompt = """당신은 경험이 풍부한 암호화폐 전문 트레이더이자 리스크 관리자입니다.
-데이터 기반의 논리적 분석을 통해 신중하지만 기회를 놓치지 않는 판단을 합니다.
+        prompt = """당신은 냉철하고 현실적인 암호화폐 전문 트레이더이자 리스크 관리자입니다.
+데이터 기반의 객관적 분석을 통해 감정 없이 현실을 직시하고 냉철한 판단을 합니다.
 
 입력으로 주어진 코인 가격 정보와 추이를 기반으로 논리적 Reasoning 과정을 거쳐
 매수(BUY) / 매도(SELL) / 보유(HOLD) / 관망(PASS) 중 하나를 결정하세요.
 
 기술적 가격 흐름, 추세, 지표 해석을 스스로 Reasoning하여 판단하세요.
-"조건식 평가"가 아니라 "맥락 기반 판단"을 수행하세요.
+"조건식 평가"가 아니라 "맥락 기반 판단"을 수행하되, 반드시 현실을 직시하세요.
 
 ## 현재 시장 상황
 
@@ -376,9 +376,6 @@ class GeminiClient:
 
 ## 내 계좌 정보
 {2}
-
-## 거래 히스토리
-{3}
 
 -----------------------------
 📌 필수 안전조건 (반드시 준수)
@@ -392,6 +389,7 @@ class GeminiClient:
    - 모든 매매 결정에는 손익비를 고려하세요
    - 불확실하거나 판단 근거가 부족하면 PASS를 선택할 수 있습니다
    - PASS는 허용되는 선택입니다
+   - 시장 상황이 좋지 않거나 전반적인 하락 추세일 때는 무리한 신규 매수를 피하되, 기술적 근거가 충분하다면 제한적 또는 분할 매수를 고려할 수 있습니다.
 
 3. **과도한 거래 방지**
    - 하루 신규 매수 종목 수를 과도하게 제시하지 마세요
@@ -399,10 +397,9 @@ class GeminiClient:
    - 한 번에 너무 많은 거래를 하지 마세요
 
 4. **기술적 제약**
-   - 최소 매수 금액: 10000원
+   - 최소 매수 금액: 8000원
    - 최소 매도 금액: 5000원
    - 시장가 거래만 가능
-   - 코인 구독 변경은 이 프롬프트에서 하지 마세요
 
 -----------------------------
 📌 자유 판단 영역 (LLM이 Reasoning 기반으로 스스로 판단)
@@ -438,9 +435,11 @@ class GeminiClient:
 
 1. 위 정보를 종합적으로 분석하여 논리적 Reasoning을 수행하세요.
 2. **맥락 기반 판단**: 단순 조건식이 아닌 전체적인 맥락을 고려하세요.
-3. **판단 근거 명확화**: 왜 그런 결정을 내렸는지 논리적으로 설명할 수 있어야 합니다.
-4. 거래가 필요하다고 판단되면 **buy_coin 또는 sell_coin 함수**를 사용하세요.
-5. **불확실하면 PASS**: 판단 근거가 부족하거나 불확실하면 거래하지 않아도 됩니다.
+3. **현실 직시**: 손실 상황을 명확히 인지하고, 긍정적 표현보다는 객관적 사실에 집중하세요.
+4. **판단 근거 명확화**: 왜 그런 결정을 내렸는지 논리적으로 설명할 수 있어야 합니다.
+5. 거래가 필요하다고 판단되면 **buy_coin 또는 sell_coin 함수**를 사용하세요.
+6. **불확실하면 PASS**: 판단 근거가 부족하거나 불확실하면 거래하지 않아도 됩니다.
+7. **손실 코인 우선 평가**: 보유 코인 중 손실이 발생한 코인을 우선적으로 평가하고, 손실 확대 시 즉시 매도를 고려하세요.
 
 ## 응답 형식
 
@@ -604,13 +603,33 @@ JSON 형식으로 응답하되, 함수 호출이 필요한 경우에만 함수�
                                 for part in parts:
                                     if hasattr(part, 'function_call'):
                                         func_call = part.function_call
-                                        try:
-                                            function_calls.append({
-                                                "name": func_call.name,
-                                                "arguments": dict(func_call.args)
-                                            })
-                                        except Exception as e:
-                                            print(f"⚠️  function_call 파싱 실패: {e}")
+                                        if func_call is not None:
+                                            try:
+                                                # name 확인
+                                                func_name = getattr(func_call, 'name', None)
+                                                if func_name is None:
+                                                    print(f"⚠️  function_call에 name이 없습니다: {func_call}")
+                                                    continue
+                                                
+                                                # args 처리 (None이면 빈 딕셔너리)
+                                                func_args = getattr(func_call, 'args', None)
+                                                if func_args is not None:
+                                                    try:
+                                                        args_dict = dict(func_args)
+                                                    except (TypeError, ValueError) as e:
+                                                        print(f"⚠️  function_call args 변환 실패: {e}, 빈 딕셔너리 사용")
+                                                        args_dict = {}
+                                                else:
+                                                    args_dict = {}
+                                                
+                                                function_calls.append({
+                                                    "name": func_name,
+                                                    "arguments": args_dict
+                                                })
+                                            except Exception as e:
+                                                print(f"⚠️  function_call 파싱 실패: {e}")
+                                                import traceback
+                                                traceback.print_exc()
             
             # Function calling이 없으면 텍스트에서 JSON 파싱 시도
             if not function_calls and response_text:
@@ -718,13 +737,33 @@ JSON 형식으로 응답하되, 함수 호출이 필요한 경우에만 함수�
                                 for part in parts:
                                     if hasattr(part, 'function_call'):
                                         func_call = part.function_call
-                                        try:
-                                            function_calls.append({
-                                                "name": func_call.name,
-                                                "arguments": dict(func_call.args)
-                                            })
-                                        except Exception as e:
-                                            print(f"⚠️  function_call 파싱 실패: {e}")
+                                        if func_call is not None:
+                                            try:
+                                                # name 확인
+                                                func_name = getattr(func_call, 'name', None)
+                                                if func_name is None:
+                                                    print(f"⚠️  function_call에 name이 없습니다: {func_call}")
+                                                    continue
+                                                
+                                                # args 처리 (None이면 빈 딕셔너리)
+                                                func_args = getattr(func_call, 'args', None)
+                                                if func_args is not None:
+                                                    try:
+                                                        args_dict = dict(func_args)
+                                                    except (TypeError, ValueError) as e:
+                                                        print(f"⚠️  function_call args 변환 실패: {e}, 빈 딕셔너리 사용")
+                                                        args_dict = {}
+                                                else:
+                                                    args_dict = {}
+                                                
+                                                function_calls.append({
+                                                    "name": func_name,
+                                                    "arguments": args_dict
+                                                })
+                                            except Exception as e:
+                                                print(f"⚠️  function_call 파싱 실패: {e}")
+                                                import traceback
+                                                traceback.print_exc()
             
             # Function calling이 없으면 텍스트에서 JSON 파싱 시도
             if not function_calls and response_text:

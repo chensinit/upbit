@@ -51,9 +51,9 @@ def test_llm_call():
         print("\n🤖 Gemini 클라이언트 초기화 중...")
         gemini_client = GeminiClient()
         
-        # 실제 가격 조회 (WebSocket 사용)
-        print("\n📝 현재 가격 조회 중 (WebSocket 구독)...")
-        current_prices = get_current_prices(tickers, use_websocket=True, timeout=10)
+        # 실제 가격 조회 (REST API 사용)
+        print("\n📝 현재 가격 조회 중 (REST API)...")
+        current_prices = get_current_prices(tickers, use_websocket=False)
         
         if not current_prices:
             print("⚠️  가격 조회 실패. 테스트를 종료합니다.")
@@ -84,9 +84,12 @@ def test_llm_call():
                 portfolio_text += f"(현재가: {holding['current_price']:,.0f}원, "
                 portfolio_text += f"평가금액: {holding['total_value']:,.0f}원)"
         
-        # 거래 히스토리
+        # 거래 히스토리 (보유 코인만 조회, 저장된 거래 내역 우선 사용)
         print("\n📜 거래 히스토리 조회 중...")
-        trade_history_text = history_manager.format_for_gemini(current_prices=current_prices)
+        trade_history_text = history_manager.format_for_gemini(
+            current_prices=current_prices,
+            tickers=None  # None이면 보유 코인만 조회
+        )
         
         # Prompt 생성
         prompt = gemini_client.build_trading_prompt(

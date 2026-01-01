@@ -2,16 +2,18 @@
 거래 실행 헬퍼 함수
 공통 거래 실행 로직을 제공합니다.
 """
-from typing import Dict, List
+from typing import Dict, List, Optional
 from trading_executor import TradingExecutor
 from gemini_client import GeminiClient
 from config_manager import ConfigManager
+from trade_execution_history import TradeExecutionHistory
 
 
 def execute_function_calls(function_calls: List[Dict],
                           executor: TradingExecutor,
                           gemini_client: GeminiClient,
-                          config_manager: ConfigManager = None) -> None:
+                          config_manager: ConfigManager = None,
+                          execution_history: Optional[TradeExecutionHistory] = None) -> None:
     """
     함수 호출 리스트를 실행합니다.
     
@@ -45,6 +47,17 @@ def execute_function_calls(function_calls: List[Dict],
                     print(f"✅ 매수 성공: {ticker}, {amount:,.0f}원")
                 else:
                     print(f"❌ 매수 실패: {error}")
+                
+                # 거래 내역 저장
+                if execution_history:
+                    execution_history.save_execution(
+                        function_name=name,
+                        ticker=ticker,
+                        arguments=parsed_args,
+                        success=success,
+                        result=result if success else None,
+                        error=error if not success else None
+                    )
             
             elif name == "sell_coin":
                 ticker = parsed_args["ticker"]
@@ -55,6 +68,17 @@ def execute_function_calls(function_calls: List[Dict],
                     print(f"✅ 매도 성공: {ticker}, {volume}")
                 else:
                     print(f"❌ 매도 실패: {error}")
+                
+                # 거래 내역 저장
+                if execution_history:
+                    execution_history.save_execution(
+                        function_name=name,
+                        ticker=ticker,
+                        arguments=parsed_args,
+                        success=success,
+                        result=result if success else None,
+                        error=error if not success else None
+                    )
             
             elif name == "update_subscribed_coins":
                 if config_manager is None:
